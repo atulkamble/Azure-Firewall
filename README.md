@@ -27,6 +27,7 @@ Azure Firewall is a cloud-native network security service that protects Azure Vi
    - **BackendSubnet**: For internal resources.
    - **AzureFirewallSubnet**: Dedicated subnet for Azure Firewall (mandatory naming).
 
+// Create Resource Group named as FirewallResourceGroup
    ```bash
    az network vnet create \
        --resource-group FirewallResourceGroup \
