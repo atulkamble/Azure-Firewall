@@ -1,165 +1,93 @@
-https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal-policy
-https://learn.microsoft.com/en-us/azure/firewall/premium-deploy
+# Azure Firewall
 
-Troubleshoot - ipconfig /flushdns
+# What looks good
 
-1. Create Resource Group
+* **UDR via firewall**: Associating `fw-dg` to `Workload-SN` and sending `0.0.0.0/0` to the firewall’s **private** IP (next-hop **Virtual appliance**) is correct. ([Microsoft Learn][1])
+* **Rules layout**: App rule to allow only `www.google.com`, network rule for DNS to external resolvers, and DNAT for RDP through the firewall public IP aligns with the tutorials. ([Microsoft Learn][2])
 
-Test-FW-RG
+# Issues to fix (important)
 
-2. Create a VNet
+1. **Firewall subnet naming & size**
+   Create a **dedicated subnet named exactly `AzureFirewallSubnet`** (recommended **/26**) for the firewall. Don’t place the firewall in a generic subnet. If you ever enable forced tunneling or Premium management, you’ll also need `AzureFirewallManagementSubnet`. ([Microsoft Learn][3])
 
-Test-FW-VN
+2. **Addressing mismatch**
+   You used firewall private IP `10.0.1.4` → implies a firewall subnet like `10.0.1.0/x`.
+   But DNAT targets `Srv-Work` at **10.0.0.4**, while your workload subnet is `10.0.2.0/24`. Pick one scheme and stick to it. (Example below.)
 
-3. Select Premium with Policy
+3. **DNAT + NSG interaction**
+   DNAT doesn’t bypass the VM/subnet NSG. Your VM “no inbound rules” will block RDP **after** translation. Add an NSG rule on `Srv-Work` NIC/subnet to **allow TCP/3389 from your client public IP** (or a narrow source), or temporarily from any for the lab. ([Microsoft Learn][4])
 
-4. Add Subnet Workload-SN
+4. **Required public IP for the firewall**
+   Make sure the firewall has a **Standard, Static** public IP attached for DNAT to work. (You’ve listed one; just confirm it’s bound to the firewall.) ([Microsoft Learn][2])
 
-Workload-SN
-10.0.2.0/24
+5. **DNS—two cleaner options**
 
-5. Create a virtual machine
+* **Simple (what you’re doing):** VM uses external DNS (209.244.0.3/4). Keep your **Network rule** (UDP 53) and the UDR will hairpin via firewall.
+* **Cleaner (recommended):** Enable **DNS Proxy** on Azure Firewall, point the VM to the firewall **as DNS** (or keep Azure DNS), and let the firewall forward/inspect. This simplifies rules and keeps DNS egress consistent. ([Microsoft Learn][5])
 
-Windows Server 2019 Datacenter
+6. **Premium with Policy**
+   You can deploy **Premium SKU + Firewall Policy** (you’re doing this) — just ensure the policy is **associated** and your rule collection groups priorities don’t collide. For prod, hub-and-spoke is preferred. ([Microsoft Learn][6])
 
-Srv-Work
+# “Gold” corrected layout (one-VNet lab)
 
-no ip, no inbound rules for Srv-Work
+**VNet:** `Test-FW-VN` — address space: `10.0.0.0/16`
 
-6. Deploy the firewall and policy
+* **Subnet (Firewall):** `AzureFirewallSubnet` → `10.0.1.0/26`
+* **Subnet (Workload):** `Workload-SN` → `10.0.2.0/24`
+* **Firewall private IP (example):** `10.0.1.4`
+* **Srv-Work private IP (example):** `10.0.2.4` ← **update your DNAT target to this**
 
-Test-FW-VN-firewall-policy
+**Route table `fw-dg` (associate to `Workload-SN`):**
 
-7. Create a default route 
+* `0.0.0.0/0` → **Virtual appliance** → `10.0.1.4` (firewall private IP). ([Microsoft Learn][1])
 
-All Services >> Networking >> Route Table
+**Firewall Policy (Premium) rules:**
 
-Route Table Name - fw-dg
+* **Application RC** (prio 200) → **Allow** `www.google.com`, protocols `http, https`, source `10.0.2.0/24`.
+* **Network RC** (prio 200) → **Allow** UDP/53, source `10.0.2.0/24`, destination `209.244.0.3,209.244.0.4`.
 
-Route-Table >> Setting >> Subnet >> Associate >> Workload-SN
+  * *(Alternative: enable DNS Proxy on firewall and point VM DNS to firewall.)* ([Microsoft Learn][5])
+* **DNAT RC** → Name `RDP`, **Dest:** firewall **public** IP, **TCP/3389**, **Translated IP:** `10.0.2.4`, **Port:** `3389`. DNAT auto-adds corresponding allow network rule. ([Microsoft Learn][4])
 
+**NSGs:**
 
-8 . Routes 
+* **No NSG** on `AzureFirewallSubnet`. It’s managed by the platform. ([Microsoft Learn][7])
+* On `Workload-SN` and/or `Srv-Work` NIC: **Allow inbound TCP/3389** from **your client public IP**.
 
-Route Name: fw-dg
-Destination - IP Addresses
-Next Hop - Virtual Appliances
-Enter Private IP of Firewall (noted previously) 10.0.1.4
+**VM:**
 
-9. Configure an application rule
+* Windows Server 2019, no public IP (correct).
+* Local Windows firewall usually allows RDP when enabled; confirm the rule is on.
 
-Open Test-FW-VN-firewall-policy | Application rules
+# Test & troubleshooting checklist
 
-Rule Name - App-Coll01
-Priority - 200
-Allow-Google
-Source - 10.0.2.0/24
-http, https 
-www.google.com
+* **Flush DNS** in the VM after changing DNS settings: `ipconfig /flushdns`. (A reboot also clears resolver cache; your Step 13 is fine.)
+* **RDP via firewall public IP** → login to `Srv-Work`. If it fails, check (in order):
 
-10. Configure a network rule
+  1. NSG on NIC/subnet allowing 3389 from your client IP.
+  2. DNAT rule points to **10.0.2.4** (not 10.0.0.4).
+  3. Firewall public IP bound & healthy; policy **associated** to firewall.
+  4. UDR on `Workload-SN` set to **10.0.1.4**.
+* **Outbound test in Edge:**
 
-Rule Collection Type - Network
-Net-Coll01
-Name - Allow-DNS
-DefaultNetworkRuleCollectionGroup
-Source - 10.0.2.0/24
-200
-UDP - 53
-IP Addresses
-Destination - 209.244.0.3,209.244.0.4
+  * `https://www.google.com` → **Allowed** (App rule).
+  * `https://www.microsoft.com` → **Blocked** (no matching App rule).
+* If DNS fails: temporarily switch VM DNS to `168.63.129.16` (Azure DNS) to isolate DNS vs. firewall issue; or enable **DNS Proxy** and point VM to the firewall. ([Microsoft Learn][5])
 
-11. Configure a DNAT rule
+# Optional “pro” enhancements (quick wins)
 
-Test-FW-VN-firewall-policy | DNAT rules
+* **Diagnostics & Logs:** Send Azure Firewall logs to **Log Analytics** for rule hits and DNAT troubleshooting. (Highly recommended in labs and prod.) ([Microsoft Learn][2])
+* **Premium features:** Try **TLS Inspection** and **IDPS** (needs certificates, outbound HTTPS decryption). ([Microsoft Learn][6])
+* **Architecture:** For production, move to **hub-and-spoke** with the firewall in the hub. ([Microsoft Learn][8])
 
-Name - RDP
+---
 
-DefaultDnatRuleCollectionGroup
 
-Source - *
-
-TCP - 3389
-
-Destination - firewall public IP address
-
-172.191.106.95
-
-For Translated type, select IP Address.
-For Translated address, enter the Srv-work private IP address. - 10.0.0.4
-
-For Translated port, enter 3389.
-
-
-12. Change the primary and secondary DNS address for the Srv-Work network interface
-
-srv-work457_z1 | DNS servers
-
-Under Settings, select DNS servers.
-Under DNS servers, select Custom.
-Enter 209.244.0.3 in the Add DNS server text box, and 209.244.0.4 in the next text box.
-Select Save.
-
-13. Restart VM & note details for RDP through firewall public ip 
-
-
-14. Test the firewall
-
-Connect a remote desktop to firewall public IP address and sign in to the Srv-Work virtual machine.
-
-open firewall public-ip 172.191.106.95
-172.191.106.95
-
-Enter Username, password
-
-atul 
-LEJ@5
-
-
-
-Open Microsoft Edge and browse to https://www.google.com.
-
-Select OK > Close on the Internet Explorer security alerts.
-
-You should see the Google home page.
-
-Browse to https://www.microsoft.com.
-
-You should be blocked by the firewall.
-
-So now you've verified that the firewall rules are working:
-
-You can browse to the one allowed FQDN, but not to any others.
-You can resolve DNS names using the configured external DNS server.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[1]: https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-udr-overview?utm_source=chatgpt.com "Azure virtual network traffic routing"
+[2]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal?utm_source=chatgpt.com "Deploy & configure Azure Firewall using the Azure portal"
+[3]: https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-firewall?utm_source=chatgpt.com "Architecture Best Practices for Azure Firewall"
+[4]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-dnat?utm_source=chatgpt.com "Filter inbound Internet or intranet traffic with Azure Firewall ..."
+[5]: https://learn.microsoft.com/en-us/azure/firewall/dns-settings?utm_source=chatgpt.com "Azure Firewall DNS settings"
+[6]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal-policy?utm_source=chatgpt.com "Tutorial: Deploy & configure Azure Firewall and policy ..."
+[7]: https://learn.microsoft.com/en-us/azure/firewall/firewall-faq?utm_source=chatgpt.com "Azure Firewall FAQ"
+[8]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-hybrid-portal-policy?utm_source=chatgpt.com "Deploy and configure Azure Firewall and policy in a hybrid ..."
