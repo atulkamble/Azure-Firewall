@@ -1,5 +1,14 @@
 # Azure Firewall Project
 
+Firewall Public IP - 20.3.77.22
+Firewall Private IP - 10.0.1.4
+
+VM Private IP - 10.0.2.4
+
+https://learn.microsoft.com/en-us/azure/bastion/bastion-overview
+
+https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal
+
 ## Overview
 Azure Firewall is a cloud-native network security service that protects Azure Virtual Network resources. This guide provides a comprehensive walkthrough for setting up Azure Firewall using the Azure Portal and deploying a secure network architecture. The implementation includes:
 
