@@ -2,530 +2,583 @@
 
 ---
 
-# 🎯 Objective
+## 🎯 Objective
 
-Learn and implement **Azure Firewall** with:
+Learn and implement **Azure Firewall** end-to-end with:
 
-* Architecture (Hub-Spoke)
-* Features (with diagrams)
-* Hands-on lab (CLI)
-* Plan comparison
-* Exam & interview readiness
+- Architecture (Hub-Spoke model)
+- Feature explanations with diagrams
+- Validated hands-on lab (Azure CLI, step-by-step)
+- SKU/Plan comparison
+- Exam & interview prep
 
 ---
 
-# 🧱 Architecture (Hub-Spoke Model)
+## 🧱 Architecture: Hub-Spoke Model
+
+The firewall lives in the **Hub VNet**. All spoke traffic is forced through it via a **User Defined Route (UDR)**. VMs have no public IP — inbound access is via DNAT on the firewall.
 
 ```mermaid
 flowchart LR
     Internet((Internet))
 
-    subgraph HubVNet [Hub VNet: 10.0.0.0/16]
-        FW[Azure Firewall]
+    subgraph HubVNet ["Hub VNet · 10.0.0.0/16"]
+        FW["🔥 Azure Firewall\nAzureFirewallSubnet · 10.0.1.0/26"]
     end
 
-    subgraph SpokeVNet [Spoke VNet: 10.1.0.0/16]
-        VM[VM - Ubuntu]
+    subgraph SpokeVNet ["Spoke VNet · 10.1.0.0/16"]
+        VM["🖥️ VM - Ubuntu\nAppSubnet · 10.1.1.0/24"]
     end
 
-    Internet --> FW
-    FW --> VM
-    VM -->|UDR| FW
+    Internet -->|"Inbound — DNAT :2222"| FW
+    FW -->|"Allowed traffic"| VM
+    VM -->|"UDR 0.0.0.0/0 → FW"| FW
+    FW -->|"Outbound — SNAT"| Internet
 ```
 
 ---
 
-# 🧭 Traffic Flow (Exam Concept)
+## 🧭 Traffic Flow (Exam Concept)
 
-1. VM sends request
-2. Route Table (UDR) → Azure Firewall
-3. Firewall evaluates rules
-4. Allow / Deny
-5. Traffic flows
+**Outbound (VM → Internet):**
+```
+VM → UDR → Azure Firewall → Evaluate Rules → Allow/Deny → Internet (SNAT)
+```
 
----
+**Inbound (Internet → VM):**
+```
+Internet → Firewall Public IP → DNAT Rule → VM Private IP
+```
 
-# 🔥 Azure Firewall Plans Comparison
-
-| Feature             | Basic    | Standard   | Premium    |
-| ------------------- | -------- | ---------- | ---------- |
-| Use Case            | Dev/Test | Production | Enterprise |
-| Network Rules       | ✅        | ✅          | ✅          |
-| Application Rules   | ❌        | ✅          | ✅          |
-| Threat Intelligence | ❌        | ✅          | ✅          |
-| TLS Inspection      | ❌        | ❌          | ✅          |
-| IDPS                | ❌        | ❌          | ✅          |
-| URL Filtering       | ❌        | ❌          | ✅          |
-| DNS Proxy           | ❌        | ✅          | ✅          |
-| Availability Zones  | ❌        | ✅          | ✅          |
+> ⚠️ Azure Firewall is **stateful** — return traffic is automatically allowed without an explicit rule.
 
 ---
 
-# 🧠 Plan Selection
+## 🔥 Azure Firewall SKU Comparison
 
-* **Basic → Labs / Cost saving**
-* **Standard → Default production**
-* **Premium → Security heavy workloads**
+| Feature               | Basic    | Standard   | Premium    |
+|-----------------------|----------|------------|------------|
+| **Use Case**          | Dev/Test | Production | Enterprise |
+| Network Rules (L3/L4) | ✅       | ✅          | ✅          |
+| Application Rules (L7)| ❌       | ✅          | ✅          |
+| Threat Intelligence   | ❌       | ✅          | ✅          |
+| DNS Proxy             | ❌       | ✅          | ✅          |
+| Availability Zones    | ❌       | ✅          | ✅          |
+| TLS Inspection        | ❌       | ❌          | ✅          |
+| IDPS                  | ❌       | ❌          | ✅          |
+| URL Filtering         | ❌       | ❌          | ✅          |
+
+**When to use:**
+- **Basic** → Cost-conscious labs, non-production
+- **Standard** → Default for production workloads
+- **Premium** → Compliance, advanced threat protection, TLS inspection
 
 ---
 
-# 🔥 Azure Firewall Features (With Diagrams)
+## 🔥 Azure Firewall Features
 
 ---
 
-## 🌐 1. Network Rules (L3/L4)
+### 🌐 1. Network Rules (L3/L4)
 
-**Explanation:**
-Filter traffic using IP, Port, Protocol
+Filter traffic by **IP address, port, and protocol**.
 
 ```mermaid
 flowchart LR
-    VM -->|Port 80/443| FW
+    VM -->|"TCP 80/443 ✅"| FW[Azure Firewall]
+    VM -->|"TCP 22 ❌"| FW
     FW -->|Allowed| Internet
-    VM -->|Port 22| FW
-    FW -->|Blocked| Internet
+    FW -->|Blocked| X[Dropped]
 ```
+
+> Example: Allow HTTP/HTTPS from spoke subnet, block all other ports.
 
 ---
 
-## 🌍 2. Application Rules (L7)
+### 🌍 2. Application Rules (L7)
 
-**Explanation:**
-Allow/deny based on domain (FQDN)
+Filter traffic by **FQDN (domain name)** — works at Layer 7.
 
 ```mermaid
 flowchart LR
-    VM -->|google.com| FW
-    FW -->|Allowed| Internet
-    VM -->|facebook.com| FW
-    FW -->|Blocked| Internet
+    VM --> FW[Azure Firewall]
+    FW -->|"google.com ✅"| Internet
+    FW -->|"facebook.com ❌"| X[Blocked]
 ```
+
+> Requires **DNS Proxy** enabled on the firewall for FQDN resolution to work correctly.
 
 ---
 
-## 🔁 3. SNAT (Outbound)
+### 🔁 3. SNAT – Outbound NAT
 
-**Explanation:**
-Private IP → Public IP for internet access
+Translates **VM private IP → Firewall public IP** for internet access.
 
 ```mermaid
 flowchart LR
-    VM[10.x.x.x] --> FW
-    FW -->|SNAT| PublicIP
-    PublicIP --> Internet
+    VM["VM · 10.1.1.4"] -->|Private IP| FW[Azure Firewall]
+    FW -->|"SNAT → Public IP"| Internet
 ```
+
+> All outbound traffic appears to originate from the firewall's public IP.
 
 ---
 
-## 🔓 4. DNAT (Inbound)
+### 🔓 4. DNAT – Inbound NAT
 
-**Explanation:**
-Public IP → Private VM
+Translates **Firewall public IP → VM private IP** for inbound access.
 
 ```mermaid
 flowchart LR
-    Internet --> FW
-    FW -->|DNAT| VM
+    Internet -->|"Public IP : port 2222"| FW[Azure Firewall]
+    FW -->|"DNAT → 10.1.1.4 : 22"| VM
 ```
+
+> Used to expose VM services (SSH, RDP) without assigning a public IP directly to the VM.
 
 ---
 
-## 🛡️ 5. Threat Intelligence
+### 🛡️ 5. Threat Intelligence
 
-**Explanation:**
-Block malicious IPs/domains using Microsoft feed
+Automatically **blocks known malicious IPs and domains** using Microsoft's threat feed.
 
 ```mermaid
 flowchart LR
-    Internet -->|Malicious| FW
-    FW -->|Blocked| VM
+    Internet -->|"Known malicious IP"| FW[Azure Firewall]
+    FW -->|"Threat Intel: BLOCK"| X[Dropped]
+    Internet -->|"Clean traffic"| FW
+    FW -->|Allowed| VM
 ```
+
+> Modes: **Off** | **Alert only** | **Alert and Deny**
 
 ---
 
-## 🔐 6. TLS Inspection (Premium)
+### 🔐 6. TLS Inspection *(Premium only)*
 
-**Explanation:**
-Decrypt → Inspect → Re-encrypt HTTPS traffic
+**Decrypts, inspects, then re-encrypts** HTTPS traffic.
 
 ```mermaid
 flowchart LR
-    VM -->|HTTPS| FW
-    FW --> Inspect
-    Inspect --> Internet
+    VM -->|"HTTPS encrypted"| FW[Azure Firewall Premium]
+    FW -->|Decrypt| Inspect[Deep Inspection\nIDPS / URL Filter]
+    Inspect -->|Re-encrypt| Internet
 ```
+
+> Requires a CA certificate stored in **Azure Key Vault**.
 
 ---
 
-## 🚨 7. IDPS (Premium)
+### 🚨 7. IDPS – Intrusion Detection & Prevention *(Premium only)*
 
-**Explanation:**
-Detect & block attacks (SQL injection, exploits)
+**Detects and blocks network attacks** such as SQL injection, exploits, and port scans.
 
 ```mermaid
 flowchart LR
-    Internet -->|Attack| FW
-    FW -->|Blocked| VM
+    Internet -->|"Attack traffic"| FW[Azure Firewall Premium]
+    FW -->|"IDPS: Signature match → BLOCK"| X[Dropped]
 ```
+
+> Modes: **Off** | **Alert** | **Alert and Deny**
 
 ---
 
-## 🌐 8. DNS Proxy
+### 🌐 8. DNS Proxy
 
-**Explanation:**
-Central DNS resolution for FQDN filtering
+Firewall acts as a **central DNS resolver** — required for FQDN-based Application Rules to work.
 
 ```mermaid
 flowchart LR
-    VM --> FW --> DNS --> FW --> VM
+    VM -->|"DNS Query"| FW[Azure Firewall\nDNS Proxy]
+    FW -->|"Forward query"| DNS[Azure DNS / Custom DNS]
+    DNS -->|"IP Response"| FW
+    FW -->|"Resolved IP"| VM
 ```
+
+> Enable DNS Proxy on the firewall, then set the VM's DNS server to the firewall private IP.
 
 ---
 
-## 📊 9. Logging & Monitoring
+### 📊 9. Logging & Monitoring
 
-**Explanation:**
-Track traffic using Azure Monitor
+All firewall events flow to **Azure Monitor / Log Analytics**.
 
 ```mermaid
 flowchart LR
-    FW --> Logs
-    Logs --> Dashboard
+    FW[Azure Firewall] -->|Diagnostic Logs| LA[Log Analytics Workspace]
+    LA -->|KQL Queries| Dashboard[Azure Monitor Dashboard]
+    LA -->|Trigger| Alert[Alert Rules]
 ```
 
----
-
-# 🚀 Hands-On Lab (CLI)
+> Key log categories: `AzureFirewallNetworkRule`, `AzureFirewallApplicationRule`, `AzureFirewallDnsProxy`
 
 ---
 
-## 🧩 Resource Group
+## 🚀 Hands-On Lab (Azure CLI)
+
+> **Prerequisites:** Azure CLI installed and logged in (`az login`), active subscription.
+> This lab follows the **Basic Architecture** (single VNet) as described in the [official tutorial](https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal).
+
+### IP Addressing Plan
+
+| Resource              | CIDR / Value             |
+|-----------------------|--------------------------|
+| VNet (Test-FW-VN)     | 10.0.0.0/16              |
+| AzureFirewallSubnet   | 10.0.1.0/**26**          |
+| Workload-SN           | 10.0.2.0/24              |
+| Firewall Private IP   | 10.0.1.4 (auto-assigned) |
+| VM Private IP         | 10.0.2.4 (auto-assigned) |
+
+---
+
+### Step 1 – Create Resource Group
 
 ```bash
-az group create -n rg-firewall-lab -l centralindia
+az group create \
+  --name Test-FW-RG \
+  --location westus
 ```
 
 ---
 
-## 🌐 Hub VNet
+### Step 2 – Create VNet with Subnets
+
+> ⚠️ The subnet **must** be named exactly `AzureFirewallSubnet` and **minimum /26** (Azure enforced).
 
 ```bash
+# Create VNet with AzureFirewallSubnet
 az network vnet create \
--n vnet-hub \
--g rg-firewall-lab \
---address-prefix 10.0.0.0/16 \
---subnet-name AzureFirewallSubnet \
---subnet-prefix 10.0.1.0/24
+  --name Test-FW-VN \
+  --resource-group Test-FW-RG \
+  --address-prefix 10.0.0.0/16 \
+  --subnet-name AzureFirewallSubnet \
+  --subnet-prefix 10.0.1.0/26
+
+# Add Workload-SN subnet to the same VNet
+az network vnet subnet create \
+  --name Workload-SN \
+  --resource-group Test-FW-RG \
+  --vnet-name Test-FW-VN \
+  --address-prefix 10.0.2.0/24
 ```
 
 ---
 
-## 🌐 Spoke VNet
+### Step 3 – Create Public IP for Firewall
 
-```bash
-az network vnet create \
--n vnet-spoke \
--g rg-firewall-lab \
---address-prefix 10.1.0.0/16 \
---subnet-name AppSubnet \
---subnet-prefix 10.1.1.0/24
-```
-
----
-
-## 🔗 VNet Peering
-
-```bash
-az network vnet peering create \
--n hub-to-spoke \
--g rg-firewall-lab \
---vnet-name vnet-hub \
---remote-vnet vnet-spoke \
---allow-vnet-access
-```
-
-```bash
-az network vnet peering create \
--n spoke-to-hub \
--g rg-firewall-lab \
---vnet-name vnet-spoke \
---remote-vnet vnet-hub \
---allow-vnet-access
-```
-
----
-
-## 🌍 Public IP
+> Must be **Standard SKU** with **Static** allocation. Basic SKU is not supported.
 
 ```bash
 az network public-ip create \
--n fw-pip -g rg-firewall-lab --sku Standard
+  --name fw-pip \
+  --resource-group Test-FW-RG \
+  --sku Standard \
+  --allocation-method Static
 ```
 
 ---
 
-## 🔥 Firewall
+### Step 4 – Deploy Azure Firewall
+
+> `--sku AZFW_VNet` = VNet-integrated firewall. `--tier Standard` = Standard feature set.
 
 ```bash
 az network firewall create \
--n az-firewall -g rg-firewall-lab -l centralindia
+  --name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --location westus \
+  --sku AZFW_VNet \
+  --tier Standard
 ```
+
+Attach the public IP to the firewall:
 
 ```bash
 az network firewall ip-config create \
---firewall-name az-firewall \
---name fw-config \
---public-ip-address fw-pip \
---resource-group rg-firewall-lab \
---vnet-name vnet-hub
+  --firewall-name Test-FW01 \
+  --name fw-ipconfig \
+  --public-ip-address fw-pip \
+  --resource-group Test-FW-RG \
+  --vnet-name Test-FW-VN
+```
+
+Save the firewall private IP (needed for route table):
+
+```bash
+FW_PRIVATE_IP=$(az network firewall show \
+  --name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --query "ipConfigurations[0].privateIpAddress" \
+  --output tsv)
+
+echo "Firewall Private IP: $FW_PRIVATE_IP"
 ```
 
 ---
 
-## 🖥️ VM
+### Step 5 – Deploy VM (No Public IP)
+
+> VM has **no public IP** — inbound access is via DNAT through the firewall (Step 8).
 
 ```bash
 az vm create \
--n vm-test \
--g rg-firewall-lab \
---image Ubuntu2204 \
---vnet-name vnet-spoke \
---subnet AppSubnet \
---admin-username azureuser \
---generate-ssh-keys
+  --name Srv-Work \
+  --resource-group Test-FW-RG \
+  --image Ubuntu2204 \
+  --vnet-name Test-FW-VN \
+  --subnet Workload-SN \
+  --admin-username azureuser \
+  --generate-ssh-keys \
+  --public-ip-address ""
 ```
 
 ---
 
-## 🔀 Route Table
+### Step 6 – Create Route Table (Force Traffic via Firewall)
+
+> UDR sends all workload traffic (`0.0.0.0/0`) to the firewall as a **Virtual Appliance** next hop.
 
 ```bash
-az network route-table create -n rt-firewall -g rg-firewall-lab
-```
+# Create route table
+az network route-table create \
+  --name Firewall-route \
+  --resource-group Test-FW-RG
 
-```bash
-az network firewall show \
--n az-firewall -g rg-firewall-lab \
---query "ipConfigurations[0].privateIpAddress" -o tsv
-```
-
-```bash
+# Add default route pointing to firewall
 az network route-table route create \
--g rg-firewall-lab \
---route-table-name rt-firewall \
--n default-route \
---address-prefix 0.0.0.0/0 \
---next-hop-type VirtualAppliance \
---next-hop-ip-address <FIREWALL_PRIVATE_IP>
-```
+  --resource-group Test-FW-RG \
+  --route-table-name Firewall-route \
+  --name default-to-firewall \
+  --address-prefix 0.0.0.0/0 \
+  --next-hop-type VirtualAppliance \
+  --next-hop-ip-address $FW_PRIVATE_IP
 
-```bash
+# Associate route table to Workload-SN
 az network vnet subnet update \
--n AppSubnet \
---vnet-name vnet-spoke \
--g rg-firewall-lab \
---route-table rt-firewall
+  --name Workload-SN \
+  --vnet-name Test-FW-VN \
+  --resource-group Test-FW-RG \
+  --route-table Firewall-route
 ```
 
 ---
 
-## 📜 Firewall Rules
+### Step 7 – Configure Network Rule (DNS)
+
+> Allow DNS queries from the workload subnet to external DNS servers. Required for name resolution to work.
 
 ```bash
-# Allow HTTP/HTTPS
 az network firewall network-rule create \
---firewall-name az-firewall \
---resource-group rg-firewall-lab \
---collection-name allow-web \
---name allow-http-https \
---protocols TCP \
---source-addresses "*" \
---destination-addresses "*" \
---destination-ports 80 443 \
---action Allow \
---priority 100
-```
-
-```bash
-# Deny All
-az network firewall network-rule create \
---firewall-name az-firewall \
---resource-group rg-firewall-lab \
---collection-name deny-all \
---name deny-all-rule \
---protocols Any \
---source-addresses "*" \
---destination-addresses "*" \
---destination-ports "*" \
---action Deny \
---priority 200
+  --firewall-name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --collection-name Net-Coll01 \
+  --name Allow-DNS \
+  --protocols UDP \
+  --source-addresses 10.0.2.0/24 \
+  --destination-addresses 209.244.0.3 209.244.0.4 \
+  --destination-ports 53 \
+  --action Allow \
+  --priority 200
 ```
 
 ---
 
-# 🧪 Validation
+### Step 8 – Configure Application Rule (FQDN)
+
+> Allow HTTP/HTTPS to `www.google.com` only. All other FQDNs are implicitly denied.
 
 ```bash
-ssh azureuser@<VM_PUBLIC_IP>
-
-curl http://google.com   # Allowed
-ping google.com          # Blocked
+az network firewall application-rule create \
+  --firewall-name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --collection-name App-Coll01 \
+  --name Allow-Google \
+  --protocols Http=80 Https=443 \
+  --source-addresses 10.0.2.0/24 \
+  --target-fqdns www.google.com \
+  --action Allow \
+  --priority 200
 ```
 
 ---
 
-# 📊 Logging
+### Step 9 – DNAT Rule – SSH Access to VM via Firewall
+
+> Expose VM SSH (port 22) via the firewall public IP on port 2222. No public IP needed on the VM.
 
 ```bash
+# Get firewall public IP
+FW_PUBLIC_IP=$(az network public-ip show \
+  --name fw-pip \
+  --resource-group Test-FW-RG \
+  --query ipAddress --output tsv)
+
+# Get VM private IP
+VM_PRIVATE_IP=$(az vm show \
+  --name Srv-Work \
+  --resource-group Test-FW-RG \
+  --show-details \
+  --query privateIps --output tsv)
+
+echo "Firewall Public IP : $FW_PUBLIC_IP"
+echo "VM Private IP      : $VM_PRIVATE_IP"
+
+# Create DNAT rule
+az network firewall nat-rule create \
+  --firewall-name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --collection-name dnat-ssh \
+  --name ssh-to-vm \
+  --protocols TCP \
+  --source-addresses "*" \
+  --destination-addresses $FW_PUBLIC_IP \
+  --destination-ports 2222 \
+  --translated-address $VM_PRIVATE_IP \
+  --translated-port 22 \
+  --action Dnat \
+  --priority 100
+```
+
+---
+
+### Step 10 – Enable Logging
+
+#### 10a. Create Log Analytics Workspace
+
+```bash
+az monitor log-analytics workspace create \
+  --resource-group Test-FW-RG \
+  --workspace-name law-firewall-lab \
+  --location westus
+```
+
+#### 10b. Enable Diagnostic Settings on Firewall
+
+```bash
+LAW_ID=$(az monitor log-analytics workspace show \
+  --resource-group Test-FW-RG \
+  --workspace-name law-firewall-lab \
+  --query id --output tsv)
+
+FW_ID=$(az network firewall show \
+  --name Test-FW01 \
+  --resource-group Test-FW-RG \
+  --query id --output tsv)
+
 az monitor diagnostic-settings create \
---name fw-logs \
---resource $(az network firewall show --name az-firewall --resource-group rg-firewall-lab --query id -o tsv) \
---workspace <LOG_ANALYTICS_ID> \
---logs '[{"category":"AzureFirewallNetworkRule","enabled":true}]'
+  --name fw-diagnostics \
+  --resource $FW_ID \
+  --workspace $LAW_ID \
+  --logs '[
+    {"category":"AzureFirewallNetworkRule","enabled":true},
+    {"category":"AzureFirewallApplicationRule","enabled":true},
+    {"category":"AzureFirewallDnsProxy","enabled":true}
+  ]' \
+  --metrics '[{"category":"AllMetrics","enabled":true}]'
 ```
 
 ---
 
-# ⚠️ Points to Remember (🔥 Exam)
+## 🧪 Validation
 
-* Firewall is **stateful**
-* Default = **Deny**
-* Use **AzureFirewallSubnet (mandatory name)**
-* Requires **UDR**
-* Standard Public IP only
-* Premium → TLS + IDPS
-* Rules processed by priority
-
----
-
-# 🧠 Real-World Use Cases
-
-* Hub-Spoke security
-* Zero Trust
-* Outbound restriction
-* Enterprise compliance
-
----
-
-# 🚀 Advanced Topics
-
-* Azure Firewall Manager
-* Private Endpoints
-* Hybrid connectivity
-* Multi-region firewall
-
----
-
-# 🧹 Cleanup
+### SSH into VM via Firewall DNAT
 
 ```bash
-az group delete -n rg-firewall-lab --yes --no-wait
+ssh -p 2222 azureuser@$FW_PUBLIC_IP
+```
+
+### Test Rules (run from inside the VM)
+
+```bash
+# DNS test — requires Network Rule (Step 7)
+nslookup www.google.com
+
+# Application rule tests — only www.google.com is allowed
+curl https://www.google.com      # ✅ SUCCESS  (matches App-Coll01 rule)
+curl https://www.microsoft.com   # ❌ FAIL     (no matching allow rule)
+
+# ICMP — not in any allow rule
+ping 8.8.8.8                     # ❌ Blocked  (ICMP not permitted)
+```
+
+### Query Logs in Log Analytics (KQL)
+
+```kusto
+AzureDiagnostics
+| where Category == "AzureFirewallNetworkRule"
+| project TimeGenerated, msg_s, action_s
+| order by TimeGenerated desc
+| take 50
 ```
 
 ---
 
-# 💡 Final Trainer Shortcut
+## ⚠️ Key Rules to Remember (Exam)
 
-👉 Interview one-liner:
-
-* L3/L4 → Network Rules
-* L7 → Application Rules
-* SNAT → Outbound
-* DNAT → Inbound
-* Premium → Advanced Security
-
----
-
-# 📋 Previous Lab Notes
-
-## What looks good
-
-* **UDR via firewall**: Associating `fw-dg` to `Workload-SN` and sending `0.0.0.0/0` to the firewall’s **private** IP (next-hop **Virtual appliance**) is correct. ([Microsoft Learn][1])
-* **Rules layout**: App rule to allow only `www.google.com`, network rule for DNS to external resolvers, and DNAT for RDP through the firewall public IP aligns with the tutorials. ([Microsoft Learn][2])
-
-# Issues to fix (important)
-
-1. **Firewall subnet naming & size**
-   Create a **dedicated subnet named exactly `AzureFirewallSubnet`** (recommended **/26**) for the firewall. Don’t place the firewall in a generic subnet. If you ever enable forced tunneling or Premium management, you’ll also need `AzureFirewallManagementSubnet`. ([Microsoft Learn][3])
-
-2. **Addressing mismatch**
-   You used firewall private IP `10.0.1.4` → implies a firewall subnet like `10.0.1.0/x`.
-   But DNAT targets `Srv-Work` at **10.0.0.4**, while your workload subnet is `10.0.2.0/24`. Pick one scheme and stick to it. (Example below.)
-
-3. **DNAT + NSG interaction**
-   DNAT doesn’t bypass the VM/subnet NSG. Your VM “no inbound rules” will block RDP **after** translation. Add an NSG rule on `Srv-Work` NIC/subnet to **allow TCP/3389 from your client public IP** (or a narrow source), or temporarily from any for the lab. ([Microsoft Learn][4])
-
-4. **Required public IP for the firewall**
-   Make sure the firewall has a **Standard, Static** public IP attached for DNAT to work. (You’ve listed one; just confirm it’s bound to the firewall.) ([Microsoft Learn][2])
-
-5. **DNS—two cleaner options**
-
-* **Simple (what you’re doing):** VM uses external DNS (209.244.0.3/4). Keep your **Network rule** (UDP 53) and the UDR will hairpin via firewall.
-* **Cleaner (recommended):** Enable **DNS Proxy** on Azure Firewall, point the VM to the firewall **as DNS** (or keep Azure DNS), and let the firewall forward/inspect. This simplifies rules and keeps DNS egress consistent. ([Microsoft Learn][5])
-
-6. **Premium with Policy**
-   You can deploy **Premium SKU + Firewall Policy** (you’re doing this) — just ensure the policy is **associated** and your rule collection groups priorities don’t collide. For prod, hub-and-spoke is preferred. ([Microsoft Learn][6])
-
-# “Gold” corrected layout (one-VNet lab)
-
-**VNet:** `Test-FW-VN` — address space: `10.0.0.0/16`
-
-* **Subnet (Firewall):** `AzureFirewallSubnet` → `10.0.1.0/26`
-* **Subnet (Workload):** `Workload-SN` → `10.0.2.0/24`
-* **Firewall private IP (example):** `10.0.1.4`
-* **Srv-Work private IP (example):** `10.0.2.4` ← **update your DNAT target to this**
-
-**Route table `fw-dg` (associate to `Workload-SN`):**
-
-* `0.0.0.0/0` → **Virtual appliance** → `10.0.1.4` (firewall private IP). ([Microsoft Learn][1])
-
-**Firewall Policy (Premium) rules:**
-
-* **Application RC** (prio 200) → **Allow** `www.google.com`, protocols `http, https`, source `10.0.2.0/24`.
-* **Network RC** (prio 200) → **Allow** UDP/53, source `10.0.2.0/24`, destination `209.244.0.3,209.244.0.4`.
-
-  * *(Alternative: enable DNS Proxy on firewall and point VM DNS to firewall.)* ([Microsoft Learn][5])
-* **DNAT RC** → Name `RDP`, **Dest:** firewall **public** IP, **TCP/3389**, **Translated IP:** `10.0.2.4`, **Port:** `3389`. DNAT auto-adds corresponding allow network rule. ([Microsoft Learn][4])
-
-**NSGs:**
-
-* **No NSG** on `AzureFirewallSubnet`. It’s managed by the platform. ([Microsoft Learn][7])
-* On `Workload-SN` and/or `Srv-Work` NIC: **Allow inbound TCP/3389** from **your client public IP**.
-
-**VM:**
-
-* Windows Server 2019, no public IP (correct).
-* Local Windows firewall usually allows RDP when enabled; confirm the rule is on.
-
-# Test & troubleshooting checklist
-
-* **Flush DNS** in the VM after changing DNS settings: `ipconfig /flushdns`. (A reboot also clears resolver cache; your Step 13 is fine.)
-* **RDP via firewall public IP** → login to `Srv-Work`. If it fails, check (in order):
-
-  1. NSG on NIC/subnet allowing 3389 from your client IP.
-  2. DNAT rule points to **10.0.2.4** (not 10.0.0.4).
-  3. Firewall public IP bound & healthy; policy **associated** to firewall.
-  4. UDR on `Workload-SN` set to **10.0.1.4**.
-* **Outbound test in Edge:**
-
-  * `https://www.google.com` → **Allowed** (App rule).
-  * `https://www.microsoft.com` → **Blocked** (no matching App rule).
-* If DNS fails: temporarily switch VM DNS to `168.63.129.16` (Azure DNS) to isolate DNS vs. firewall issue; or enable **DNS Proxy** and point VM to the firewall. ([Microsoft Learn][5])
-
-# Optional “pro” enhancements (quick wins)
-
-* **Diagnostics & Logs:** Send Azure Firewall logs to **Log Analytics** for rule hits and DNAT troubleshooting. (Highly recommended in labs and prod.) ([Microsoft Learn][2])
-* **Premium features:** Try **TLS Inspection** and **IDPS** (needs certificates, outbound HTTPS decryption). ([Microsoft Learn][6])
-* **Architecture:** For production, move to **hub-and-spoke** with the firewall in the hub. ([Microsoft Learn][8])
+| Rule | Detail |
+|------|--------|
+| Firewall is **stateful** | Return traffic auto-allowed |
+| Default policy = **Deny all** | Explicit allow rules required |
+| Subnet name **must** be `AzureFirewallSubnet` | Exact name enforced by Azure |
+| Minimum subnet size | **/26** (64 addresses) |
+| Public IP must be **Standard + Static** | Basic SKU not supported |
+| **UDR required** | Traffic won't hit firewall without it |
+| Rules evaluated by **priority** | Lower number = evaluated first |
+| **No NSG** on AzureFirewallSubnet | Platform-managed; NSGs are blocked |
+| DNAT auto-creates an allow rule | No separate network rule needed |
+| Premium features need **Firewall Policy** | TLS Inspection requires Key Vault CA cert |
+| **Rule processing order** | NAT Rules → Network Rules → Application Rules |
+| **Azure Bastion** | Secure VM access via browser; needs `AzureBastionSubnet /26` |
 
 ---
 
+## 🧠 Real-World Use Cases
 
-[1]: https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-udr-overview?utm_source=chatgpt.com "Azure virtual network traffic routing"
-[2]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal?utm_source=chatgpt.com "Deploy & configure Azure Firewall using the Azure portal"
-[3]: https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-firewall?utm_source=chatgpt.com "Architecture Best Practices for Azure Firewall"
-[4]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-dnat?utm_source=chatgpt.com "Filter inbound Internet or intranet traffic with Azure Firewall ..."
-[5]: https://learn.microsoft.com/en-us/azure/firewall/dns-settings?utm_source=chatgpt.com "Azure Firewall DNS settings"
-[6]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal-policy?utm_source=chatgpt.com "Tutorial: Deploy & configure Azure Firewall and policy ..."
-[7]: https://learn.microsoft.com/en-us/azure/firewall/firewall-faq?utm_source=chatgpt.com "Azure Firewall FAQ"
-[8]: https://learn.microsoft.com/en-us/azure/firewall/tutorial-hybrid-portal-policy?utm_source=chatgpt.com "Deploy and configure Azure Firewall and policy in a hybrid ..."
+| Scenario | Feature Used |
+|----------|--------------|
+| Force all spoke internet traffic via hub | UDR + Network Rules |
+| Allow only specific websites | Application Rules (FQDN) |
+| Expose VM service without public IP on VM | DNAT |
+| Block known malicious IPs automatically | Threat Intelligence |
+| Deep packet inspection of HTTPS | TLS Inspection (Premium) |
+| Detect SQL injection / exploits | IDPS (Premium) |
+| Centralized DNS for all VMs | DNS Proxy |
+| Audit all firewall decisions | Diagnostic Logs → Log Analytics |
+
+---
+
+## 🚀 Advanced Topics
+
+- **Azure Firewall Manager** – Centrally manage policies across multiple firewalls and regions
+- **Firewall Policy** – Reusable, hierarchical rule management (parent/child policies)
+- **Forced Tunneling** – Route firewall management traffic through your own controlled route
+- **Private Endpoints** – Combine with firewall for private PaaS service access
+- **Multi-region** – Deploy firewall in each region, managed centrally via Firewall Manager
+- **Hybrid Connectivity** – Secure on-premises ↔ Azure traffic over VPN/ExpressRoute + Firewall
+
+---
+
+## 🧹 Cleanup
+
+```bash
+az group delete \
+  --name Test-FW-RG \
+  --yes \
+  --no-wait
+```
+
+---
+
+## 💡 Interview Quick Reference
+
+| Layer | Feature | Direction |
+|-------|---------|-----------|
+| L3/L4 | Network Rules | Both |
+| L7 | Application Rules | Outbound |
+| — | SNAT | Outbound |
+| — | DNAT | Inbound |
+| — | Threat Intelligence | Both |
+| Premium | TLS Inspection | Outbound |
+| Premium | IDPS | Both |
+
+> **One-liner:** Azure Firewall is a **stateful, cloud-native, managed NVA** that inspects and controls network traffic at L3–L7 in hub-spoke architectures, with no infrastructure to manage.
