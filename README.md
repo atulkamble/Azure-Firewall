@@ -235,16 +235,6 @@ Subnet: AzureBastionSubnet (/26)
 * Secure outbound/inbound filtering
 * Enterprise-grade security
 
----
-
-## 🧾 12. Repo Name Suggestions
-
-```
-azure-firewall-project
-azure-firewall-architecture
-azure-network-security-lab
-azure-firewall-hub-spoke
-```
 
 ---
 
