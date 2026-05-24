@@ -1,6 +1,444 @@
-# Azure Firewall
+# 🔥 Azure Firewall – Complete Practice, Architecture & Features Guide
 
-# What looks good
+---
+
+# 🎯 Objective
+
+Learn and implement **Azure Firewall** with:
+
+* Architecture (Hub-Spoke)
+* Features (with diagrams)
+* Hands-on lab (CLI)
+* Plan comparison
+* Exam & interview readiness
+
+---
+
+# 🧱 Architecture (Hub-Spoke Model)
+
+```mermaid
+flowchart LR
+    Internet((Internet))
+
+    subgraph HubVNet [Hub VNet: 10.0.0.0/16]
+        FW[Azure Firewall]
+    end
+
+    subgraph SpokeVNet [Spoke VNet: 10.1.0.0/16]
+        VM[VM - Ubuntu]
+    end
+
+    Internet --> FW
+    FW --> VM
+    VM -->|UDR| FW
+```
+
+---
+
+# 🧭 Traffic Flow (Exam Concept)
+
+1. VM sends request
+2. Route Table (UDR) → Azure Firewall
+3. Firewall evaluates rules
+4. Allow / Deny
+5. Traffic flows
+
+---
+
+# 🔥 Azure Firewall Plans Comparison
+
+| Feature             | Basic    | Standard   | Premium    |
+| ------------------- | -------- | ---------- | ---------- |
+| Use Case            | Dev/Test | Production | Enterprise |
+| Network Rules       | ✅        | ✅          | ✅          |
+| Application Rules   | ❌        | ✅          | ✅          |
+| Threat Intelligence | ❌        | ✅          | ✅          |
+| TLS Inspection      | ❌        | ❌          | ✅          |
+| IDPS                | ❌        | ❌          | ✅          |
+| URL Filtering       | ❌        | ❌          | ✅          |
+| DNS Proxy           | ❌        | ✅          | ✅          |
+| Availability Zones  | ❌        | ✅          | ✅          |
+
+---
+
+# 🧠 Plan Selection
+
+* **Basic → Labs / Cost saving**
+* **Standard → Default production**
+* **Premium → Security heavy workloads**
+
+---
+
+# 🔥 Azure Firewall Features (With Diagrams)
+
+---
+
+## 🌐 1. Network Rules (L3/L4)
+
+**Explanation:**
+Filter traffic using IP, Port, Protocol
+
+```mermaid
+flowchart LR
+    VM -->|Port 80/443| FW
+    FW -->|Allowed| Internet
+    VM -->|Port 22| FW
+    FW -->|Blocked| Internet
+```
+
+---
+
+## 🌍 2. Application Rules (L7)
+
+**Explanation:**
+Allow/deny based on domain (FQDN)
+
+```mermaid
+flowchart LR
+    VM -->|google.com| FW
+    FW -->|Allowed| Internet
+    VM -->|facebook.com| FW
+    FW -->|Blocked| Internet
+```
+
+---
+
+## 🔁 3. SNAT (Outbound)
+
+**Explanation:**
+Private IP → Public IP for internet access
+
+```mermaid
+flowchart LR
+    VM[10.x.x.x] --> FW
+    FW -->|SNAT| PublicIP
+    PublicIP --> Internet
+```
+
+---
+
+## 🔓 4. DNAT (Inbound)
+
+**Explanation:**
+Public IP → Private VM
+
+```mermaid
+flowchart LR
+    Internet --> FW
+    FW -->|DNAT| VM
+```
+
+---
+
+## 🛡️ 5. Threat Intelligence
+
+**Explanation:**
+Block malicious IPs/domains using Microsoft feed
+
+```mermaid
+flowchart LR
+    Internet -->|Malicious| FW
+    FW -->|Blocked| VM
+```
+
+---
+
+## 🔐 6. TLS Inspection (Premium)
+
+**Explanation:**
+Decrypt → Inspect → Re-encrypt HTTPS traffic
+
+```mermaid
+flowchart LR
+    VM -->|HTTPS| FW
+    FW --> Inspect
+    Inspect --> Internet
+```
+
+---
+
+## 🚨 7. IDPS (Premium)
+
+**Explanation:**
+Detect & block attacks (SQL injection, exploits)
+
+```mermaid
+flowchart LR
+    Internet -->|Attack| FW
+    FW -->|Blocked| VM
+```
+
+---
+
+## 🌐 8. DNS Proxy
+
+**Explanation:**
+Central DNS resolution for FQDN filtering
+
+```mermaid
+flowchart LR
+    VM --> FW --> DNS --> FW --> VM
+```
+
+---
+
+## 📊 9. Logging & Monitoring
+
+**Explanation:**
+Track traffic using Azure Monitor
+
+```mermaid
+flowchart LR
+    FW --> Logs
+    Logs --> Dashboard
+```
+
+---
+
+# 🚀 Hands-On Lab (CLI)
+
+---
+
+## 🧩 Resource Group
+
+```bash
+az group create -n rg-firewall-lab -l centralindia
+```
+
+---
+
+## 🌐 Hub VNet
+
+```bash
+az network vnet create \
+-n vnet-hub \
+-g rg-firewall-lab \
+--address-prefix 10.0.0.0/16 \
+--subnet-name AzureFirewallSubnet \
+--subnet-prefix 10.0.1.0/24
+```
+
+---
+
+## 🌐 Spoke VNet
+
+```bash
+az network vnet create \
+-n vnet-spoke \
+-g rg-firewall-lab \
+--address-prefix 10.1.0.0/16 \
+--subnet-name AppSubnet \
+--subnet-prefix 10.1.1.0/24
+```
+
+---
+
+## 🔗 VNet Peering
+
+```bash
+az network vnet peering create \
+-n hub-to-spoke \
+-g rg-firewall-lab \
+--vnet-name vnet-hub \
+--remote-vnet vnet-spoke \
+--allow-vnet-access
+```
+
+```bash
+az network vnet peering create \
+-n spoke-to-hub \
+-g rg-firewall-lab \
+--vnet-name vnet-spoke \
+--remote-vnet vnet-hub \
+--allow-vnet-access
+```
+
+---
+
+## 🌍 Public IP
+
+```bash
+az network public-ip create \
+-n fw-pip -g rg-firewall-lab --sku Standard
+```
+
+---
+
+## 🔥 Firewall
+
+```bash
+az network firewall create \
+-n az-firewall -g rg-firewall-lab -l centralindia
+```
+
+```bash
+az network firewall ip-config create \
+--firewall-name az-firewall \
+--name fw-config \
+--public-ip-address fw-pip \
+--resource-group rg-firewall-lab \
+--vnet-name vnet-hub
+```
+
+---
+
+## 🖥️ VM
+
+```bash
+az vm create \
+-n vm-test \
+-g rg-firewall-lab \
+--image Ubuntu2204 \
+--vnet-name vnet-spoke \
+--subnet AppSubnet \
+--admin-username azureuser \
+--generate-ssh-keys
+```
+
+---
+
+## 🔀 Route Table
+
+```bash
+az network route-table create -n rt-firewall -g rg-firewall-lab
+```
+
+```bash
+az network firewall show \
+-n az-firewall -g rg-firewall-lab \
+--query "ipConfigurations[0].privateIpAddress" -o tsv
+```
+
+```bash
+az network route-table route create \
+-g rg-firewall-lab \
+--route-table-name rt-firewall \
+-n default-route \
+--address-prefix 0.0.0.0/0 \
+--next-hop-type VirtualAppliance \
+--next-hop-ip-address <FIREWALL_PRIVATE_IP>
+```
+
+```bash
+az network vnet subnet update \
+-n AppSubnet \
+--vnet-name vnet-spoke \
+-g rg-firewall-lab \
+--route-table rt-firewall
+```
+
+---
+
+## 📜 Firewall Rules
+
+```bash
+# Allow HTTP/HTTPS
+az network firewall network-rule create \
+--firewall-name az-firewall \
+--resource-group rg-firewall-lab \
+--collection-name allow-web \
+--name allow-http-https \
+--protocols TCP \
+--source-addresses "*" \
+--destination-addresses "*" \
+--destination-ports 80 443 \
+--action Allow \
+--priority 100
+```
+
+```bash
+# Deny All
+az network firewall network-rule create \
+--firewall-name az-firewall \
+--resource-group rg-firewall-lab \
+--collection-name deny-all \
+--name deny-all-rule \
+--protocols Any \
+--source-addresses "*" \
+--destination-addresses "*" \
+--destination-ports "*" \
+--action Deny \
+--priority 200
+```
+
+---
+
+# 🧪 Validation
+
+```bash
+ssh azureuser@<VM_PUBLIC_IP>
+
+curl http://google.com   # Allowed
+ping google.com          # Blocked
+```
+
+---
+
+# 📊 Logging
+
+```bash
+az monitor diagnostic-settings create \
+--name fw-logs \
+--resource $(az network firewall show --name az-firewall --resource-group rg-firewall-lab --query id -o tsv) \
+--workspace <LOG_ANALYTICS_ID> \
+--logs '[{"category":"AzureFirewallNetworkRule","enabled":true}]'
+```
+
+---
+
+# ⚠️ Points to Remember (🔥 Exam)
+
+* Firewall is **stateful**
+* Default = **Deny**
+* Use **AzureFirewallSubnet (mandatory name)**
+* Requires **UDR**
+* Standard Public IP only
+* Premium → TLS + IDPS
+* Rules processed by priority
+
+---
+
+# 🧠 Real-World Use Cases
+
+* Hub-Spoke security
+* Zero Trust
+* Outbound restriction
+* Enterprise compliance
+
+---
+
+# 🚀 Advanced Topics
+
+* Azure Firewall Manager
+* Private Endpoints
+* Hybrid connectivity
+* Multi-region firewall
+
+---
+
+# 🧹 Cleanup
+
+```bash
+az group delete -n rg-firewall-lab --yes --no-wait
+```
+
+---
+
+# 💡 Final Trainer Shortcut
+
+👉 Interview one-liner:
+
+* L3/L4 → Network Rules
+* L7 → Application Rules
+* SNAT → Outbound
+* DNAT → Inbound
+* Premium → Advanced Security
+
+---
+
+# 📋 Previous Lab Notes
+
+## What looks good
 
 * **UDR via firewall**: Associating `fw-dg` to `Workload-SN` and sending `0.0.0.0/0` to the firewall’s **private** IP (next-hop **Virtual appliance**) is correct. ([Microsoft Learn][1])
 * **Rules layout**: App rule to allow only `www.google.com`, network rule for DNS to external resolvers, and DNAT for RDP through the firewall public IP aligns with the tutorials. ([Microsoft Learn][2])
