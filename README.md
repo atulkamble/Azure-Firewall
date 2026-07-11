@@ -46,7 +46,9 @@ Firewall SKU Tier: Standard
 Firewall policy: policy
 Choose a virtual network: Use existing
 Public IP address: FW-pip
-Management public IP address: FW-MG-pip
+Enable Firewall Management NIC: No
+AzureFirewallManagementSubnet: Not required
+Management public IP: Not required
 ```
 ---
 
@@ -61,9 +63,10 @@ Settings >> Subnets >> Associate >> Select FirewallSubnet
 
 ```
 Route name: route
-Destination type: 0.0.0.0/0
-Next hop type: Virtual Appliance
-Next hop address: Firewall Private IP (example: 10.0.1.4)
+Destination type: IP Addresses
+Destination IP addresses/CIDR ranges: 0.0.0.0/0
+Next hop type: Virtual appliance
+Next hop address: Azure Firewall private IP (example: 10.0.1.4)
 ```
 
 👉 Ensures all traffic goes via firewall
@@ -78,7 +81,7 @@ Next hop address: Firewall Private IP (example: 10.0.1.4)
 
 ```
 Azure Firewall policies >> policy >> Application Rule
-name:  app-rule
+name:  App-Coll01
 Rule collection type: Application
 Priority: 200
 Rule collection action: Allow
@@ -99,7 +102,7 @@ Destination: www.google.com
 
 ```
 Azure Firewall policies >> policy >> Network Rule
-name:  net-rule
+name: Net-Coll01
 Rule collection type: Network
 Priority: 200
 Rule collection action: Allow
