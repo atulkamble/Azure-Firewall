@@ -1,5 +1,144 @@
 # 🔥 Azure Firewall – Complete Practice & Architecture Guide
 
+## ⚙️ Deployment Steps (Portal)
+
+### Step 1: Create Resource Group
+
+```
+Name: Test-FW-RG
+Region: West US
+```
+
+---
+
+### Step 2: Create VNet + Subnets
+
+```
+VNet: Test-FW-VN
+Address Space: 10.0.0.0/16
+```
+
+### Step 3: Subnets:
+
+```
+AzureFirewallSubnet → /26 (MANDATORY)
+AzureFirewallManagementSubnet
+Workload-SN → 10.0.2.0/24
+```
+---
+
+
+### Step 4: Create VM
+
+```
+VM Name: Srv-Work
+OS: Ubuntu 22.04
+Subnet: Workload-SN
+Public IP: None
+```
+
+---
+
+### Step 5. Deploy Azure Firewall
+```
+Name: FW
+Firewall SKU Tier: Standard
+Firewall policy: policy
+Choose a virtual network: Use existing
+Public IP address: FW-pip
+Management public IP address: FW-MG-pip
+```
+---
+
+### Step 6: Create Route Table 
+```
+name: FW-table 
+Settings >> Subnets >> Associate >> Select FirewallSubnet
+```
+---
+
+### Step 7: Routing: Default Route Configuration (IMPORTANT)
+
+```
+Route name: route
+Destination type: 0.0.0.0/0
+Next hop type: Virtual Appliance
+Next hop address: Firewall Private IP (example: 10.0.1.4)
+```
+
+👉 Ensures all traffic goes via firewall
+
+📖 Only one default route is required 
+
+---
+
+## 🔐 Step 8: Firewall Rules
+
+### 🔹 Application Rule (FQDN Based)
+
+```
+Allow → www.google.com
+Source: 10.0.2.0/24
+Protocol: HTTP, HTTPS
+```
+
+✔ Use case: Website filtering
+
+---
+
+### 🔹 Step 9: Network Rule (IP Based)
+
+```
+Allow DNS
+Destination: 209.244.0.3, 209.244.0.4
+Port: 53
+Protocol: UDP
+```
+
+✔ Use case: DNS / backend services
+
+---
+
+### 🔹 Rule Processing Order
+
+1. NAT Rules
+2. Network Rules
+3. Application Rules
+
+---
+
+## 🔍 Step 10: Testing
+
+### DNS Test
+
+```
+nslookup www.google.com
+```
+
+---
+
+### Application Test
+
+```
+curl https://www.google.com    → SUCCESS  
+curl https://www.microsoft.com → FAIL  
+```
+
+✔ Confirms firewall working
+
+---
+
+## 🔐 7. Azure Bastion
+
+* Secure VM access
+* No public IP required
+
+```
+Subnet: AzureBastionSubnet (/26)
+```
+
+---
+
 ## 📚 Reference
 
 👉 [https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal](https://learn.microsoft.com/en-us/azure/firewall/tutorial-firewall-deploy-portal)
@@ -64,146 +203,6 @@ VM → Route Table → Firewall → Internet
 
 ---
 
-## ⚙️ 3. Deployment Steps (Portal)
-
-### Step 1: Create Resource Group
-
-```
-Name: Test-FW-RG
-Region: West US
-```
-
----
-
-### Step 2: Create VNet + Subnets
-
-```
-VNet: Test-FW-VN
-Address Space: 10.0.0.0/16
-```
-
-### Subnets:
-
-```
-AzureFirewallSubnet → /26 (MANDATORY)
-AzureFirewallManagementSubnet
-Workload-SN → 10.0.2.0/24
-```
----
-
-
-### Step 4: Create VM
-
-```
-VM Name: Srv-Work
-OS: Ubuntu 22.04
-Subnet: Workload-SN
-Public IP: None
-```
-
----
-
-### Step 5. Deploy Azure Firewall
-```
-Name: FW
-Firewall SKU Tier: Standard
-Firewall policy: policy
-Choose a virtual network: Use existing
-Public IP address: FW-pip
-Management public IP address: FW-MG-pip
-```
----
-
-### Create Route Table 
-```
-name: FW-table 
-Settings >> Subnets >> Associate >> Select FirewallSubnet
-```
----
-
-## 🔁 4. Routing (IMPORTANT)
-
-### Default Route Configuration
-
-```
-Route name: route
-Destination type: 0.0.0.0/0
-Next hop type: Virtual Appliance
-Next hop address: Firewall Private IP (example: 10.0.1.4)
-```
-
-👉 Ensures all traffic goes via firewall
-
-📖 Only one default route is required 
-
----
-
-## 🔐 5. Firewall Rules
-
-### 🔹 Application Rule (FQDN Based)
-
-```
-Allow → www.google.com
-Source: 10.0.2.0/24
-Protocol: HTTP, HTTPS
-```
-
-✔ Use case: Website filtering
-
----
-
-### 🔹 Network Rule (IP Based)
-
-```
-Allow DNS
-Destination: 209.244.0.3, 209.244.0.4
-Port: 53
-Protocol: UDP
-```
-
-✔ Use case: DNS / backend services
-
----
-
-### 🔹 Rule Processing Order
-
-1. NAT Rules
-2. Network Rules
-3. Application Rules
-
----
-
-## 🔍 6. Testing
-
-### DNS Test
-
-```
-nslookup www.google.com
-```
-
----
-
-### Application Test
-
-```
-curl https://www.google.com    → SUCCESS  
-curl https://www.microsoft.com → FAIL  
-```
-
-✔ Confirms firewall working
-
----
-
-## 🔐 7. Azure Bastion
-
-* Secure VM access
-* No public IP required
-
-```
-Subnet: AzureBastionSubnet (/26)
-```
-
----
 
 ## 📊 8. Azure Firewall Plans (Exam-Oriented)
 
