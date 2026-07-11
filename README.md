@@ -89,17 +89,6 @@ AzureFirewallSubnet → /26 (MANDATORY)
 AzureFirewallManagementSubnet
 Workload-SN → 10.0.2.0/24
 ```
-
----
-
-### Step 3: Deploy Azure Firewall
-
-```
-Name: Test-FW01
-Tier: Standard
-Public IP: fw-pip
-```
-
 ---
 
 
@@ -114,10 +103,10 @@ Public IP: None
 
 ---
 
-### Step 5. Create Firewall 
+### Step 5. Deploy Azure Firewall
 ```
 Name: FW
-Firewall SKU: Standard
+Firewall SKU Tier: Standard
 Firewall policy: policy
 Firewall policy: Use existing
 Public IP address: FW-pip
