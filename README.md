@@ -101,7 +101,9 @@ Public IP: fw-pip
 
 ---
 
-### Step 4: Create VM
+### Create Firewall 
+
+# Step 4: Create VM
 
 ```
 VM Name: Srv-Work
