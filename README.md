@@ -114,6 +114,13 @@ Management public IP address: FW-MG-pip
 ```
 ---
 
+# Create Route Table 
+```
+name: FW-table 
+Settings >> Subnets >> Associate >> Select FirewallSubnet
+```
+---
+
 ## 🔁 4. Routing (IMPORTANT)
 
 ### Default Route Configuration
