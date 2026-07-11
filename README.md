@@ -125,6 +125,22 @@ Destination: 209.244.0.3, 209.244.0.4
 
 ---
 
+### Check Bastion 
+```
+VM >> Connect >> Connect Via Bastion 
+username: azureuser 
+password: your-vm-password
+```
+## VM Stop 
+```
+VM >> Network Settings >> Click on Network Inerface >> DNS Servers >> Custom
+Primary	209.244.0.3
+Secondary	209.244.0.4
+```
+>> Save
+
+### Start VM 
+
 ## 🔍 Step 10: Testing
 
 ### DNS Test
