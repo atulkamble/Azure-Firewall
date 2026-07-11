@@ -129,7 +129,7 @@ Settings >> Subnets >> Associate >> Select FirewallSubnet
 Route name: route
 Destination type: 0.0.0.0/0
 Next hop type: Virtual Appliance
-Next hop address: Firewall Private IP
+Next hop address: Firewall Private IP (example: 10.0.1.4)
 ```
 
 👉 Ensures all traffic goes via firewall
