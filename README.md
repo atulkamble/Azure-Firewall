@@ -86,6 +86,7 @@ Subnets:
 
 ```
 AzureFirewallSubnet → /26 (MANDATORY)
+AzureFirewallManagementSubnet
 Workload-SN → 10.0.2.0/24
 ```
 
