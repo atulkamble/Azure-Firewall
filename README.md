@@ -102,7 +102,6 @@ Public IP: fw-pip
 
 ---
 
-### Create Firewall 
 
 # Step 4: Create VM
 
@@ -113,6 +112,17 @@ Subnet: Workload-SN
 Public IP: None
 ```
 
+---
+
+### Step 5. Create Firewall 
+```
+Name: FW
+Firewall SKU: Standard
+Firewall policy: policy
+Firewall policy: Use existing
+Public IP address: FW-pip
+Management public IP address: FW-MG-pip
+```
 ---
 
 ## 🔁 4. Routing (IMPORTANT)
