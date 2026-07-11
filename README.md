@@ -82,7 +82,7 @@ VNet: Test-FW-VN
 Address Space: 10.0.0.0/16
 ```
 
-Subnets:
+### Subnets:
 
 ```
 AzureFirewallSubnet → /26 (MANDATORY)
@@ -92,7 +92,7 @@ Workload-SN → 10.0.2.0/24
 ---
 
 
-# Step 4: Create VM
+### Step 4: Create VM
 
 ```
 VM Name: Srv-Work
@@ -114,7 +114,7 @@ Management public IP address: FW-MG-pip
 ```
 ---
 
-# Create Route Table 
+### Create Route Table 
 ```
 name: FW-table 
 Settings >> Subnets >> Associate >> Select FirewallSubnet
