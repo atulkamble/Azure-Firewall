@@ -108,7 +108,7 @@ Public IP: None
 Name: FW
 Firewall SKU Tier: Standard
 Firewall policy: policy
-Firewall policy: Use existing
+Choose a virtual network: Use existing
 Public IP address: FW-pip
 Management public IP address: FW-MG-pip
 ```
