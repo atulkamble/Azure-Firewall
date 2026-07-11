@@ -99,7 +99,7 @@ Destination: www.google.com
 
 ```
 Azure Firewall policies >> policy >> Network Rule
-name:  app-rule
+name:  net-rule
 Rule collection type: Network
 Priority: 200
 Rule collection action: Allow
@@ -108,10 +108,9 @@ name: allow-DNS
 Source type: IP Address
 Source: 10.0.2.0/24
 Protocol: UDP
-Destination Type: FQDN
-Destination: 209.244.0.3, 209.244.0.4 
-Port: 53
-
+Destination Ports: 53
+Destination Type: IP address
+Destination: 209.244.0.3, 209.244.0.4
 ```
 
 ✔ Use case: DNS / backend services
