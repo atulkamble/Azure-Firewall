@@ -77,9 +77,18 @@ Next hop address: Firewall Private IP (example: 10.0.1.4)
 ### 🔹 Application Rule (FQDN Based)
 
 ```
-Allow → www.google.com
+Azure Firewall policies >> policy >> Application Rule
+name:  app-rule
+Rule collection type: Application
+Priority: 200
+Rule collection action: Allow
+Rule collection group: DefaultApplicationRuleCollectionGroup
+name: allow-google
+Source type: IP Address
 Source: 10.0.2.0/24
-Protocol: HTTP, HTTPS
+Protocol: http, https
+Destination Type: FQDN
+Destination: www.google.com
 ```
 
 ✔ Use case: Website filtering
@@ -89,10 +98,7 @@ Protocol: HTTP, HTTPS
 ### 🔹 Step 9: Network Rule (IP Based)
 
 ```
-Allow DNS
-Destination: 209.244.0.3, 209.244.0.4
-Port: 53
-Protocol: UDP
+
 ```
 
 ✔ Use case: DNS / backend services
