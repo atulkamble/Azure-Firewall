@@ -98,6 +98,19 @@ Destination: www.google.com
 ### 🔹 Step 9: Network Rule (IP Based)
 
 ```
+Azure Firewall policies >> policy >> Network Rule
+name:  app-rule
+Rule collection type: Network
+Priority: 200
+Rule collection action: Allow
+Rule collection group: DefaultNetworkRuleCollectionGroup
+name: allow-DNS
+Source type: IP Address
+Source: 10.0.2.0/24
+Protocol: UDP
+Destination Type: FQDN
+Destination: 209.244.0.3, 209.244.0.4 
+Port: 53
 
 ```
 
